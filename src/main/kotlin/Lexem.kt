@@ -66,8 +66,6 @@ enum class Lexem(pattern: String) {
     ASSIGN_OP("="),
     OP("[*|/|+|-]"),
     BOOL_OP("<|>|<=|>=|==|!="),
-    INCR("\\+\\+"),
-    DECR("--"),
     LTEQ("<="),
     GTEQ(">="),
     DOUBLEEQ("=="),
@@ -97,7 +95,8 @@ enum class Lexem(pattern: String) {
     EQ("="),
     COMMA(","),
     HASH("#"),
-    AT("@");
+    AT("@"),
+    DOUBLELAB("<<");
 
     val pattern: Pattern = Pattern.compile(pattern)
 
