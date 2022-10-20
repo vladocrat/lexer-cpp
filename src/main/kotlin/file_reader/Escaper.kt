@@ -1,10 +1,11 @@
+package file_reader
+
 import java.io.BufferedReader
 import java.io.FileNotFoundException
 import java.io.FileReader
 
-
-class InterpolationEscaper {
-    fun readFile(fileName: String?): String? {
+class Escaper {
+    fun readFile(fileName: String): String? {
         var text: String? = null
         try {
             val br = BufferedReader(FileReader(fileName))
@@ -28,12 +29,5 @@ class InterpolationEscaper {
             }
             .forEach { str: String? -> sb.append(str) }
         return sb.toString()
-    }
-}
-
-object LexFileReader {
-
-    fun parseFile(path:String): String? {
-        return InterpolationEscaper().readFile(path)
     }
 }

@@ -1,25 +1,16 @@
+import lexer.CppLexer
+import file_reader.LexFileReader
 
 fun main(args: Array<String>) {
-    val rawFileAsString = LexFileReader.parseFile("C:\\Users\\Appleson\\Documents\\cpp-lexer\\sources\\main.cpp") ?: return
-    val tokens = Lexer.tokenize(rawFileAsString)
-    println("--------- Доступные токены: ------------")
-    for (value in tokens) {
-        println(value)
-    }
 
-//    try {
-//        Parser.parse(tokens)
-//    } catch (ex: Exception) {
-//        System.err.println(ex)
-//        System.exit(1)
-//    }
-//    println("-------------- ОПЗ: ------------")
-//    val testCalc = Calc.makePoliz(tokens)
-//    var i = 1
-//    for (token in testCalc) {
-//        println("$i $token")
-//        i++
-//    }
-//    println("--------- Таблица переменных: -----------")
-//    Calculation.calculate(testCalc)
+    val rawFileAsString = LexFileReader.parseFile("sources\\lexer.cpp") ?: return
+    val tokenList = CppLexer.analyze(rawFileAsString)
+    val tokens = tokenList
+        .groupBy { it.type }
+        .mapValues { it.value.distinctBy { it.text } }
+
+    println("\n--------- Доступные токены: ------------\n")
+//    println(tokens[CppLexer.commentBlock]?.joinToString(separator = System.lineSeparator()))
+
+    println(tokens.values.joinToString(separator = System.lineSeparator()))
 }
