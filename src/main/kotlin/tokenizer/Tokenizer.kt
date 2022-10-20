@@ -1,20 +1,33 @@
 package tokenizer
 
 import Config
-import error.TokenizeException
+import error.UnknownTokenException
 import model.Location
 import model.Token
 import types.TokenType
 
-interface Tokenizer {
+/**
+ * Преобразование текста в [TokenProducer]
+ */
+fun interface Tokenizer {
 
+    /**
+     * Преобразовать [CharSequence] в [TokenProducer]
+     */
     fun tokenize(input: CharSequence): TokenProducer
 }
 
-abstract class BestMatchTokenizer(protected val tokenTypes: List<TokenType>) : Tokenizer {
+/**
+ * Базовый класс [Tokenizer]
+ * На каждом шаге ищется токен из [tokenTypes] через совпадение (см. [findMatch]).
+ * Не возвращает токены с [TokenType.ignored] = `true`
+ *
+ * @property tokenTypes Список допустимых типов токена
+ */
+abstract class BaseMatchTokenizer(protected val tokenTypes: List<TokenType>) : Tokenizer {
 
     init {
-        require(tokenTypes.isNotEmpty()) { "Tokens types must be non-empty." }
+        require(tokenTypes.isNotEmpty()) { "Типы токенов не должны быть пустыми" }
     }
 
     override fun tokenize(input: CharSequence): TokenProducer = object : TokenProducer {
@@ -32,18 +45,23 @@ abstract class BestMatchTokenizer(protected val tokenTypes: List<TokenType>) : T
         override fun nextToken(): Token? = nextNotIgnoredToken(input, state)
     }
 
-    protected abstract fun findBestMatch(input: CharSequence, offset: Int): Pair<TokenType, Int>?
+    /**
+     * Попытка сопоставить "часть текста" с [TokenType]
+     *
+     * @param input Текст подлежащий анализу
+     * @param offset Смещение с которого необходимо начать анализ
+     *
+     * @return наиболее подходящий [TokenType] и длину совпадающего сегмента или `null`,
+     * если совпадения не найдено среди всех [tokenTypes]
+     */
+    protected abstract fun findMatch(input: CharSequence, offset: Int): Pair<TokenType, Int>?
 
     private fun nextToken(input: CharSequence, state: State): Token? {
         while (true) {
-            if (state.offset >= input.length) {
-                return null
-            }
+            if (state.offset >= input.length) return null
 
-            val bestMatch = findBestMatch(input, state.offset) ?: throw TokenizeException(
-                "Cannot tokenize the whole input. Unknown token: row=${state.row}, column=${state.column}"
-            )
-            val (type, length) = bestMatch
+            val match = findMatch(input, state.offset) ?: throw UnknownTokenException(state)
+            val (type, length) = match
             val (offset, row, column) = state
 
             if (Config.hasLogg) {
@@ -58,7 +76,7 @@ abstract class BestMatchTokenizer(protected val tokenTypes: List<TokenType>) : T
                 println(state)
             }
             if (!type.ignored) {
-                return Token(type, input, length, Location(offset, row, column))
+                return Token(type, input, length, Location(row, column, offset))
             }
         }
     }
@@ -71,7 +89,7 @@ abstract class BestMatchTokenizer(protected val tokenTypes: List<TokenType>) : T
             }
             val next = nextToken(input, state)
             if (next == null) {
-                require(input.length == state.offset) { "Cannot tokenize the whole input. Unknown token: row=${state.row}, column=${state.column}" }
+                if(input.length != state.offset) throw UnknownTokenException(state)
                 return null
             } else if (!next.type.ignored) {
                 return next
@@ -79,11 +97,19 @@ abstract class BestMatchTokenizer(protected val tokenTypes: List<TokenType>) : T
         }
     }
 
-    private data class State(
+    /**
+     * Внутренне состояние [BaseMatchTokenizer]
+     * для отслеживания позиции последнего проанализированного сегмента текста
+     */
+    data class State(
         var offset: Int = 0,
         var row: Int = 1,
         var column: Int = 1,
     ) {
+
+        /**
+         * Изменить состояние через сдвиг
+         */
         fun advance(symbol: Char) {
             if (symbol == '\n') {
                 row++

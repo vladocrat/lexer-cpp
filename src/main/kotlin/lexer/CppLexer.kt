@@ -1,12 +1,15 @@
 package lexer
 
 import tokenizer.FirstMatchTokenizer
-import tokenizer.provideTokenizer
+import tokenizer.TokenizerProvider
 import types.char
 import types.regex
 
+/**
+ * Лексер для файлов языка С++
+ */
 object CppLexer : Lexer() {
-    override val tokenizerProvider = provideTokenizer { FirstMatchTokenizer(tokenTypes) }
+    override val tokenizerProvider = TokenizerProvider { FirstMatchTokenizer(it) }
 
     val commentBlock by regex("/\\*([^*]|[\\r\\n]|(\\*+([^*/]|[\\r\\n])))*\\*+/")
     val commentLine by regex("//.*+")

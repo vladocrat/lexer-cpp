@@ -1,5 +1,8 @@
 package types
 
+/**
+ * Представляет токен, который сравнивает первый символ с [char] с учетом [ignoreCase].
+ */
 class CharTokenType(
     private val char: Char,
     override val name: String,

@@ -1,5 +1,9 @@
 package types
 
+/**
+ * Представляет токен, который проверяет [predicate] для каждого символа последовательно.
+ * Как только [predicate] возвращает `false`, сопоставление завершается и возвращается количество совпавших символов.
+ */
 class CharPredicateTokenType(
     override val name: String,
     override val ignored: Boolean = false,

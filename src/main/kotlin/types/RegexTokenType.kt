@@ -1,5 +1,8 @@
 package types
 
+/**
+ * Представляет токен, который описывается регулярным выражением [regex].
+ */
 class RegexTokenType(
     regex: String,
     override val name: String,
