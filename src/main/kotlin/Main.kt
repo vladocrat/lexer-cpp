@@ -1,14 +1,9 @@
 import lexer.CppLexer
 import file_reader.LexFileReader
+import model.Token
 
-fun main(args: Array<String>) {
-
-    val rawFileAsString = LexFileReader.parseFile("sources\\lexer.cpp") ?: return
-    val tokenList = CppLexer.analyze(rawFileAsString)
-
-    println("\n--------- Доступные токены ------------")
-    val tokens = tokenList
-        .groupBy { it.type }
+fun List<Token>.beautify(): List<String> {
+    return this.groupBy { it.type }
         .run {
             val keyNamePadding = keys.maxOf { it.name.length }
             mapValues { (_, tokens) -> tokens.groupingBy { it.text }.eachCount() }
@@ -25,6 +20,16 @@ fun main(args: Array<String>) {
                     }
                 }
         }.also { println("<тип токенов>: (<кол-во токенов>)[ <'токен'=частота вхождения в файле>, ...]\n") }
+}
 
-    println(tokens.joinToString(separator = System.lineSeparator()))
+fun main(args: Array<String>) {
+
+    val rawFileAsString = LexFileReader.parseFile("sources\\lexer.cpp") ?: return
+    val tokenList = CppLexer.analyze(rawFileAsString)
+
+    println("\n--------- Доступные токены ------------")
+
+    println(tokenList
+        .beautify()
+        .joinToString(separator = System.lineSeparator()))
 }
