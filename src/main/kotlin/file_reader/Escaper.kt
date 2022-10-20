@@ -8,12 +8,14 @@ class Escaper {
     fun readFile(fileName: String): String? {
         var text: String? = null
         try {
+            println("-> Попытка чтения файла: $fileName")
             val br = BufferedReader(FileReader(fileName))
             val sb = StringBuilder()
             br.lines().forEach { s: String? ->
                 sb.append(s).append('\n')
             }
             text = buildUnescapedStr(sb.toString())
+            println("-> Файл считан")
         } catch (e: FileNotFoundException) {
             e.printStackTrace()
         }

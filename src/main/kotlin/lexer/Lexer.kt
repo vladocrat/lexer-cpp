@@ -16,8 +16,9 @@ abstract class Lexer {
     protected val tokenTypes: MutableList<TokenType> = mutableListOf()
 
     fun analyze(input: CharSequence): List<Token> {
+        println("-> Запущен анализ токенов")
         val tokenProducer = tokenizer.tokenize(input)
-        return tokenProducer.toList()
+        return tokenProducer.toList().also { println("-> Анализ завершен") }
     }
 
     protected operator fun <T : TokenType> TokenTypeProvider<T>.provideDelegate(

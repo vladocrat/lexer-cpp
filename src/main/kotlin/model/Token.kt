@@ -16,6 +16,6 @@ data class Token(
     val text: String get() = input.substring(location.offset, location.offset + length)
 
     override fun toString(): String {
-        return "model.Token: type=${type}, text=${text}"
+        return "Token: type=${type}, text=${text}"
     }
 }
