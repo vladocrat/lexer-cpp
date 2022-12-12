@@ -2,8 +2,11 @@ package lexer
 
 import tokenizer.FirstMatchTokenizer
 import tokenizer.TokenizerProvider
+import tokenizer.indexed
 import types.char
 import types.regex
+import parser.*
+import parser.combinator.*
 
 /**
  * Лексер для файлов языка С++
@@ -62,4 +65,57 @@ object CppLexer : Lexer() {
 
     val newLine by char('\n', ignored = true)
     val whitespace by regex("\\s", ignored = true)
+
+
+    val primitiveTypeDefinition = primitiveType seq identifier seq operatorAssign seq
+            (valueInteger alt
+                    valueBinary alt
+                    valueBoolean alt
+                    valueChar alt
+                    valueDouble alt
+                    valueFloat alt
+                    valueLong) map {
+        "${it.first.first.first.text} ${it.first.first.second.text} ${it.first.second.text} ${it.second.text}"
+    }
+
+//    val cringeEqOp = identifier seq operatorRelational
+
+//    for (;;) { }
+//    for (int i = 0; i < 0; ++i) {}
+//    for (; i < 0; ) {}
+
+
+//    val any = (lpar alt rpar alt lbracket alt rbracket) map { false }
+
+//    val forParser by statementFor seq lb //seq primitiveTypeDefinition seq semicolon //seq cringeEqOp seq semicolon
+
+    /**
+     * The main method that takes [input], tokenizes and parses it into [R].
+     * @see [parser]
+     * @see [tokenizer]
+     */
+    fun parse(input: CharSequence) {
+        val tokenProducer = tokenizer.tokenize(input).indexed()
+        val size = tokenProducer.count()
+        var lastIndex = 0
+
+        while (lastIndex < size) {
+            when (val result = primitiveTypeDefinition.parse(tokenProducer, lastIndex)) {
+                is ParseFailure -> {
+                    lastIndex++
+                }
+                is SuccessfulParse -> {
+                    lastIndex = result.nextTokenIndex
+                    println(result.value)
+//                    when (val nextToken = tokenProducer.getOrNull(result.nextTokenIndex)) {
+//                        null -> result
+//                        else -> {
+//                            println(UnparsedRemainderFailure(nextToken))
+//                        }
+//                    }
+                }
+            }
+        }
+
+    }
 }
