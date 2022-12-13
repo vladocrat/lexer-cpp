@@ -6,12 +6,15 @@ int main(char* argc, char** argv) {
   double a = 0.0;
   while (a != 20)
   {
-    if (a < 10)
-    {
-      a *= 1.2;
-    } else
+    if (sqrt * 2 == 3) {
+        if (0 < a) {
+        }
+        log("text");
+    } else {
         a += 1;
+    }
 
+    "dadasdasdda";
   }
 
   return 0;

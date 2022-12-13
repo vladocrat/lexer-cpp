@@ -1,5 +1,6 @@
 package parser
 
+import lexer.CppLexer
 import model.Token
 import types.TokenType
 
@@ -7,10 +8,95 @@ enum class PsiElement {
     FUNCTION, LOOP, CONDITION
 }
 
-class TriePattern {
+object TriePattern {
 
     private val root = Node()
     val availableTypes = mutableSetOf<TokenType>()
+
+    fun init() {
+        insert(
+            PsiElement.FUNCTION, listOf(
+                CppLexer.primitiveType,
+                CppLexer.identifier,
+                CppLexer.lb,
+            )
+        )
+        insert(
+            PsiElement.FUNCTION, listOf(
+                CppLexer.identifier,
+                CppLexer.identifier,
+                CppLexer.lb,
+            )
+        )
+        insert(
+            PsiElement.FUNCTION, listOf(
+                CppLexer.primitiveType,
+                CppLexer.identifier,
+                CppLexer.operatorQualified,
+                CppLexer.identifier,
+                CppLexer.lb,
+            )
+        )
+        insert(
+            PsiElement.FUNCTION, listOf(
+                CppLexer.identifier,
+                CppLexer.identifier,
+                CppLexer.operatorQualified,
+                CppLexer.identifier,
+                CppLexer.lb,
+            )
+        )
+        insert(
+            PsiElement.FUNCTION, listOf(
+                CppLexer.identifier,
+                CppLexer.operatorQualified,
+                CppLexer.identifier,
+                CppLexer.lb,
+            )
+        )
+        insert(
+            PsiElement.FUNCTION, listOf(
+                CppLexer.identifier,
+                CppLexer.operatorQualified,
+                CppLexer.tilda,
+                CppLexer.identifier,
+                CppLexer.lb,
+                CppLexer.rb,
+            )
+        )
+        insert(
+            PsiElement.FUNCTION, listOf(
+                CppLexer.tilda,
+                CppLexer.identifier,
+                CppLexer.lb,
+                CppLexer.rb,
+            )
+        )
+        insert(
+            PsiElement.LOOP, listOf(
+                CppLexer.statementLoop,
+                CppLexer.lb,
+            )
+        )
+        insert(
+            PsiElement.LOOP, listOf(
+                CppLexer.statementLoop,
+                CppLexer.lcb,
+            )
+        )
+        insert(
+            PsiElement.CONDITION, listOf( // switch()
+                CppLexer.statementControl,
+                CppLexer.lb
+            )
+        )
+        insert(
+            PsiElement.CONDITION, listOf( // (if|else|switch|case) {
+                CppLexer.statementControl,
+                CppLexer.lcb
+            )
+        )
+    }
 
     fun insert(element: PsiElement, tokenTypes: List<TokenType>) {
         var currentNode = root
