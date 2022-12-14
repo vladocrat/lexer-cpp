@@ -5,7 +5,7 @@ import model.Token
 import types.TokenType
 
 enum class PsiElement {
-    FUNCTION, LOOP, CONDITION
+    FUNCTION, FUN_CALL
 }
 
 object TriePattern {
@@ -73,29 +73,35 @@ object TriePattern {
             )
         )
         insert(
-            PsiElement.LOOP, listOf(
-                CppLexer.statementLoop,
+            PsiElement.FUN_CALL, listOf(
+                CppLexer.identifier,
                 CppLexer.lb,
             )
         )
-        insert(
-            PsiElement.LOOP, listOf(
-                CppLexer.statementLoop,
-                CppLexer.lcb,
-            )
-        )
-        insert(
-            PsiElement.CONDITION, listOf( // switch()
-                CppLexer.statementControl,
-                CppLexer.lb
-            )
-        )
-        insert(
-            PsiElement.CONDITION, listOf( // (if|else|switch|case) {
-                CppLexer.statementControl,
-                CppLexer.lcb
-            )
-        )
+//        insert(
+//            PsiElement.LOOP, listOf(
+//                CppLexer.statementLoop,
+//                CppLexer.lb,
+//            )
+//        )
+//        insert(
+//            PsiElement.LOOP, listOf(
+//                CppLexer.statementLoop,
+//                CppLexer.lcb,
+//            )
+//        )
+//        insert(
+//            PsiElement.CONDITION, listOf( // switch()
+//                CppLexer.statementControl,
+//                CppLexer.lb
+//            )
+//        )
+//        insert(
+//            PsiElement.CONDITION, listOf( // (if|else|switch|case) {
+//                CppLexer.statementControl,
+//                CppLexer.lcb
+//            )
+//        )
 //        insert(
 //            PsiElement.FUN_CALL, listOf( // (if|else|switch|case) {
 //                CppLexer.identifier,

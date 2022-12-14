@@ -7,7 +7,6 @@ import tokenizer.FirstMatchTokenizer
 import tokenizer.TokenizerProvider
 import types.char
 import types.regex
-import types.TokenType
 import java.util.*
 
 /**
@@ -75,35 +74,52 @@ object CppLexer : Lexer() {
     }
 
     fun parseTokens(tokens: List<Token>) {
-        val tree = mutableListOf<ASTElement>()
-        val stackIDK = Stack<ASTElement>()
+        val syntaxStack = Stack<ASTElement>()
         var savedTokens = mutableListOf<Token>()
         val bracketLevels = Stack<Pair<Token, List<Token>>>()
 
         for (currentToken in tokens) {
-            savedTokens.add(currentToken)
             // Определяем корневой элемент последующего блока | currentTokenType is OpenBracket e.g. ([{
-            val psi = TriePattern.findPsiElement(savedTokens)
-            when (psi) {
+            println()
+            when (TriePattern.findPsiElement(buildList { addAll(savedTokens); add(currentToken) })) {
+                null -> {
+                    println("SUCK MY COCK")
+                }
                 PsiElement.FUNCTION -> {
-                    stackIDK.add(
+                    syntaxStack.add(
                         ASTElement.BlockContent.Function(
-                            definition = savedTokens.dropLast(1),
+                            definition = savedTokens.toList(),
                             arguments = emptyList(),
                             content = emptyList()
                         )
                     )
                     savedTokens = mutableListOf()
                 }
-
-                else -> {
-                    // ignore
+                PsiElement.FUN_CALL -> {
+                    syntaxStack.add(
+                        ASTElement.FunctionCall(
+                            content = savedTokens.toList()
+                        )
+                    )
+                    savedTokens = mutableListOf()
                 }
             }
 
             when (currentToken.text) {
+                "for" -> {
+                    syntaxStack.add(
+                        ASTElement.BlockContent.For(
+                            token = currentToken,
+                            definition = null,
+                            content = emptyList()
+                        )
+                    )
+                    savedTokens = mutableListOf()
+                    continue
+                }
+
                 "if" -> {
-                    stackIDK.add(
+                    syntaxStack.add(
                         ASTElement.BlockContent.If(
                             token = currentToken,
                             condition = emptyList(),
@@ -113,8 +129,9 @@ object CppLexer : Lexer() {
                     savedTokens = mutableListOf()
                     continue
                 }
+
                 "while" -> {
-                    stackIDK.add(
+                    syntaxStack.add(
                         ASTElement.BlockContent.While(
                             token = currentToken,
                             condition = emptyList(),
@@ -124,8 +141,9 @@ object CppLexer : Lexer() {
                     savedTokens = mutableListOf()
                     continue
                 }
+
                 "else" -> {
-                    stackIDK.add(
+                    syntaxStack.add(
                         ASTElement.BlockContent.Else(
                             token = currentToken,
                             content = emptyList()
@@ -134,26 +152,61 @@ object CppLexer : Lexer() {
                     savedTokens = mutableListOf()
                     continue
                 }
+                else -> {
+                    println("SKIP MY LIFE")
+                }
             }
 
             when {
                 currentToken.isAnyOpenBracket -> {
-                    savedTokens.remove(currentToken)
-                    bracketLevels.push(currentToken to savedTokens)
+                    bracketLevels.push(currentToken to savedTokens.toList())
                     savedTokens = mutableListOf()
                 }
-
                 currentToken.isAnyCloseBracket && bracketLevels.isNotEmpty() -> {
                     val currentBracketLevel = bracketLevels.pop()
-
                     val tokensBeforeLeftBracket = currentBracketLevel.second
-                    val tokensBetweenBrackets = savedTokens.dropLast(1) // Отбрасываем currentToken
+                    val leftBracket = currentBracketLevel.first
 
-                    when (val lastAstItem = if (stackIDK.isEmpty()) null else stackIDK.peek()) {
+                    when (val lastAstItem = if (syntaxStack.isEmpty()) null else syntaxStack.peek()) {
+                        is ASTElement.FunctionCall -> {
+                            val item = syntaxStack.pop() as ASTElement.FunctionCall
+                            val functionCall = buildList {
+                                addAll(savedTokens)
+                                add(currentToken)
+                                add(0, leftBracket)
+                                addAll(0, item.content)
+                                addAll(0, tokensBeforeLeftBracket)
+                            }.toMutableList()
+                            savedTokens = functionCall
+                        }
+                        is ASTElement.BlockContent.For -> {
+                            with(lastAstItem) {
+                                if (definition == null) {
+                                    definition = buildList {
+                                        addAll(content.flatMap { (it as? ASTElement.CodeLine)?.content ?: emptyList() })
+                                        addAll(savedTokens) //tokensBetweenBrackets
+                                    }
+                                    content = emptyList()
+                                    savedTokens = mutableListOf()
+                                } else if (currentToken.type == rcb) {
+                                    val currentStatement = syntaxStack.pop()
+                                    val rootAst = if (syntaxStack.isEmpty()) null else syntaxStack.peek()
+                                    if (rootAst is ASTElement.BlockContent) {
+                                        rootAst.content = buildList {
+                                            addAll(rootAst.content)
+                                            add(currentStatement)
+                                        }
+                                    } else throw RuntimeException("rootAst=$rootAst, items=$currentStatement")
+                                } else {
+                                    savedTokens.add(0, currentBracketLevel.first)
+                                    savedTokens.addAll(0, tokensBeforeLeftBracket)
+                                }
+                            }
+                        }
                         is ASTElement.BlockContent.Function -> {
-                            lastAstItem.apply {
+                            with(lastAstItem) {
                                 if (!isArgumentsSet) {
-                                    arguments = tokensBetweenBrackets
+                                    arguments = savedTokens //tokensBetweenBrackets
                                     isArgumentsSet = true
                                     savedTokens = mutableListOf()
                                 } else {
@@ -163,14 +216,14 @@ object CppLexer : Lexer() {
                         }
 
                         is ASTElement.BlockContent.While -> {
-                            lastAstItem.apply {
+                            with(lastAstItem) {
                                 if (!isConditionSet) {
-                                    condition = tokensBetweenBrackets
+                                    condition = savedTokens //tokensBetweenBrackets
                                     isConditionSet = true
                                     savedTokens = mutableListOf()
                                 } else if (currentToken.type == rcb) {
-                                    val currentStatement = stackIDK.pop()
-                                    val rootAst = if (stackIDK.isEmpty()) null else stackIDK.peek()
+                                    val currentStatement = syntaxStack.pop()
+                                    val rootAst = if (syntaxStack.isEmpty()) null else syntaxStack.peek()
                                     if (rootAst is ASTElement.BlockContent) {
                                         rootAst.content = buildList {
                                             addAll(rootAst.content)
@@ -184,14 +237,14 @@ object CppLexer : Lexer() {
                             }
                         }
                         is ASTElement.BlockContent.If -> {
-                            lastAstItem.apply {
+                            with(lastAstItem) {
                                 if (!isConditionSet) {
-                                    condition = tokensBetweenBrackets
+                                    condition = savedTokens //tokensBetweenBrackets
                                     isConditionSet = true
                                     savedTokens = mutableListOf()
                                 } else if (currentToken.type == rcb) {
-                                    val currentStatement = stackIDK.pop()
-                                    val rootAst = if (stackIDK.isEmpty()) null else stackIDK.peek()
+                                    val currentStatement = syntaxStack.pop()
+                                    val rootAst = if (syntaxStack.isEmpty()) null else syntaxStack.peek()
                                     if (rootAst is ASTElement.BlockContent) {
                                         rootAst.content = buildList {
                                             addAll(rootAst.content)
@@ -207,8 +260,8 @@ object CppLexer : Lexer() {
 
                         is ASTElement.BlockContent.Else -> {
                             if (currentToken.type == rcb) {
-                                val currentStatement = stackIDK.pop()
-                                val rootAst = if (stackIDK.isEmpty()) null else stackIDK.peek()
+                                val currentStatement = syntaxStack.pop()
+                                val rootAst = if (syntaxStack.isEmpty()) null else syntaxStack.peek()
                                 if (rootAst is ASTElement.BlockContent) {
                                     rootAst.content = buildList {
                                         addAll(rootAst.content)
@@ -224,13 +277,15 @@ object CppLexer : Lexer() {
                         is ASTElement.CodeLine -> {
                             throw RuntimeException("Сюда попадать не должно :D")
                         }
-
-                        null -> TODO()
+                        null -> {
+                            println()
+                        }
                     }
+                    println()
                 }
-
                 currentToken.type == semicolon -> {
                     val items = mutableListOf<ASTElement>()
+                    savedTokens.add(currentToken)
                     var index = savedTokens.indexOfFirst { it.type == semicolon }
                     while (index != -1) {
                         val codeLine = ASTElement.CodeLine(savedTokens.subList(0, index + 1).toList())
@@ -238,13 +293,16 @@ object CppLexer : Lexer() {
                         savedTokens.removeAll(codeLine.content)
                         index = savedTokens.indexOfFirst { it.type == semicolon }
                     }
-                    val rootAst = if (stackIDK.isEmpty()) null else stackIDK.peek()
+                    val rootAst = if (syntaxStack.isEmpty()) null else syntaxStack.peek()
                     if (rootAst is ASTElement.BlockContent) {
                         rootAst.content = buildList {
                             addAll(rootAst.content)
                             addAll(items)
                         }
                     } else throw RuntimeException("rootAst=$rootAst, items=$items")
+                }
+                else -> {
+                    savedTokens.add(currentToken)
                 }
             }
         }
@@ -257,11 +315,13 @@ object CppLexer : Lexer() {
         get() = type == lb || type == lcb
     val Token.isAnyCloseBracket: Boolean
         get() = type == rb || type == rcb
-
-    fun matchBrackets(typeA: TokenType, typeB: TokenType) = typeA == lb && typeB == rb || typeA == lcb && typeB == rcb
 }
 
 sealed interface ASTElement {
+
+    data class FunctionCall(
+        val content: List<Token>
+    ): ASTElement
 
     data class CodeLine(val content: List<Token>) : ASTElement {
         override fun toString(): String {
@@ -282,6 +342,17 @@ sealed interface ASTElement {
         ) : BlockContent {
             override fun toString(): String {
                 return "${token.text} (${condition.joinToString("") { it.text }}) { $content }"
+            }
+        }
+
+        data class For(
+            var token: Token,
+            var definition: List<Token>?,
+            override var content: List<ASTElement>,
+            override var isContentSet: Boolean = false,
+        ) : BlockContent {
+            override fun toString(): String {
+                return "${token.text} (${definition?.joinToString("") { it.text }}) { $content }"
             }
         }
 
@@ -319,14 +390,4 @@ sealed interface ASTElement {
             }
         }
     }
-}
-
-
-class AbstractSyntaxTree {
-    private val root = Node()
-
-    data class Node(
-        var element: ASTElement? = null,
-        val childNodes: MutableList<Node> = mutableListOf()
-    )
 }
