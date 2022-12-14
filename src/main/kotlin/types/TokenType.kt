@@ -1,9 +1,12 @@
 package types
 
+import model.Token
+import parser.OrdinaryParser
+
 /**
  * Представление токена
  */
-interface TokenType {
+interface TokenType : OrdinaryParser<Token> {
 
     /**
      * Данный тип токена должен подлежать синтаксическому анализу?

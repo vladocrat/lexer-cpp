@@ -5,10 +5,10 @@ package types
  */
 class RegexTokenType(
     regex: String,
-    override val name: String,
+    name: String,
     options: Set<RegexOption> = emptySet(),
-    override val ignored: Boolean = false,
-) : TokenType {
+    ignored: Boolean = false,
+) : AbstractTokenType(name, ignored) {
     private val matcher = "^$regex".toRegex(options)
 
     override fun match(input: CharSequence, fromIndex: Int): Int {

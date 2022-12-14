@@ -1,6 +1,9 @@
 import lexer.CppLexer
 import file_reader.LexFileReader
+import kotlinx.serialization.json.Json
 import model.Token
+import kotlinx.serialization.*
+import parser.CppParser
 
 fun List<Token>.beautify(): List<String> {
     return this.groupBy { it.type }
@@ -23,13 +26,14 @@ fun List<Token>.beautify(): List<String> {
 }
 
 fun main(args: Array<String>) {
+    val rawFileAsString = LexFileReader.parseFile("./sources/main.cpp") ?: return
 
-    val rawFileAsString = LexFileReader.parseFile("sources\\lexer.cpp") ?: return
-    val tokenList = CppLexer.analyze(rawFileAsString)
+    val tokens = CppLexer.analyze(rawFileAsString)
+    val syntaxStack = CppParser.parse(tokens)
 
-    println("\n--------- Доступные токены ------------")
-
-    println(tokenList
-        .beautify()
-        .joinToString(separator = System.lineSeparator()))
+    val json = Json {
+        prettyPrint = true
+        useArrayPolymorphism = true
+    }
+    println(json.encodeToString(syntaxStack))
 }

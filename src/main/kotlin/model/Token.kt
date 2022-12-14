@@ -1,5 +1,8 @@
 package model
 
+import kotlinx.serialization.Serializable
+import lexer.CppLexer
+import serializer.TokenSerializer
 import types.TokenType
 
 /**
@@ -10,6 +13,7 @@ import types.TokenType
  * @property length Длина совпадающей части
  * @property location Местонахождение токена
  */
+@Serializable(with = TokenSerializer::class)
 data class Token(
     val type: TokenType,
     val input: CharSequence,

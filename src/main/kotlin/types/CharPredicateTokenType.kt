@@ -5,10 +5,10 @@ package types
  * Как только [predicate] возвращает `false`, сопоставление завершается и возвращается количество совпавших символов.
  */
 class CharPredicateTokenType(
-    override val name: String,
-    override val ignored: Boolean = false,
+    name: String,
+    ignored: Boolean = false,
     private val predicate: (Char) -> Boolean
-) : TokenType {
+) : AbstractTokenType(name, ignored) {
     override fun match(input: CharSequence, fromIndex: Int): Int {
         val length = input.length
         for (i in fromIndex until length) {

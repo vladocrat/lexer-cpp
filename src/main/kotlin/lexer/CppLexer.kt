@@ -9,6 +9,11 @@ import types.regex
  * Лексер для файлов языка С++
  */
 object CppLexer : Lexer() {
+    const val IF = "if"
+    const val ELSE = "else"
+    const val FOR = "for"
+    const val WHILE = "while"
+
     override val tokenizerProvider = TokenizerProvider { FirstMatchTokenizer(it) }
 
     val commentBlock by regex("/\\*([^*]|[\\r\\n]|(\\*+([^*/]|[\\r\\n])))*\\*+/")
@@ -26,8 +31,8 @@ object CppLexer : Lexer() {
     val primitiveType by regex("(bool|int|float|double|char|void|wchar_t)")
     val primitiveTypeModifier by regex("(signed|unsigned|short|long)")
     val typeModifier by regex("(const|mutable|atomic)")
-    val statementControl by regex("(if|else|switch|case)")
-    val statementLoop by regex("(for|while|do|continue)")
+    val statementControl by regex("($IF|$ELSE|switch|case)")
+    val statementLoop by regex("($FOR|$WHILE|do|continue)")
     val statementTerminate by regex("(break|return)")
     val keywordIO by regex("(cout|cin)")
     val keyword by regex("(class|struct|enum|template|final|override|using|namespace|this)")
