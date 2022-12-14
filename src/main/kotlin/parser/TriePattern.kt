@@ -96,6 +96,12 @@ object TriePattern {
                 CppLexer.lcb
             )
         )
+//        insert(
+//            PsiElement.FUN_CALL, listOf( // (if|else|switch|case) {
+//                CppLexer.identifier,
+//                CppLexer.lcb
+//            )
+//        )
     }
 
     fun insert(element: PsiElement, tokenTypes: List<TokenType>) {

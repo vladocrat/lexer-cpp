@@ -3,19 +3,13 @@
 #include "lexer.h"
 
 int main(char* argc, char** argv) {
-  double a = 0.0;
-  while (a != 20)
-  {
+    double a = 0.0;
+
     if (sqrt * 2 == 3) {
-        if (0 < a) {
-        }
-        log("text");
+        a = a + 2;
     } else {
-        a += 1;
+        echo("outer else");
     }
 
-    "dadasdasdda";
-  }
-
-  return 0;
+    return 0;
 }

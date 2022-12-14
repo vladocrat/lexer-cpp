@@ -8,6 +8,7 @@ import tokenizer.TokenizerProvider
 import types.char
 import types.regex
 import types.TokenType
+import java.lang.RuntimeException
 import java.util.*
 
 /**
@@ -71,141 +72,133 @@ object CppLexer : Lexer() {
 
     fun parse(input: CharSequence) {
         val tokens = analyze(input)
-        parseBrackets(tokens)
+        parseTokens(tokens)
     }
 
-    fun parseBrackets(tokens: List<Token>) {
+    fun parseTokens(tokens: List<Token>) {
         val tree = mutableListOf<ASTElement>()
         val stackIDK = Stack<ASTElement>()
         var savedTokens = mutableListOf<Token>()
         val bracketLevels = Stack<Pair<Token, List<Token>>>()
 
         for (currentToken in tokens) {
-
             if (currentToken.isAnyBracket) {
-
                 val isCurrentTokenClosesBracketBlock = bracketLevels.isNotEmpty()
                         && matchBrackets(bracketLevels.peek().first.type, currentToken.type)
 
-                if (isCurrentTokenClosesBracketBlock) {
-                    val (leftBracketToken, tokensBeforeLbt) = bracketLevels.pop()
+                if (isCurrentTokenClosesBracketBlock) { //functions, if
+                    val (leftBracketToken, prevTokens) = bracketLevels.pop()
+
                     val tokensBetweenBrackets = savedTokens
+                    val tokensBeforeLbt = prevTokens.toMutableList()
 
-                    val conditionToCheck = buildList {
-                        addAll(tokensBeforeLbt)
-                        add(leftBracketToken)
+                    val astData = mutableListOf<ASTElement>()
+
+                    var psiElement: PsiElement? = null
+
+                    while (tokensBeforeLbt.isNotEmpty()) {
+                        val conditionToCheck = buildList {
+                            addAll(tokensBeforeLbt)
+                            add(leftBracketToken)
+                        }
+                        psiElement = TriePattern.findPsiElement(conditionToCheck)
+
+                        if (psiElement == null) {
+                            val index = tokensBeforeLbt.indexOfFirst { it.type == semicolon }
+                            if (index > -1) {
+                                val astCodeLine = ASTElement.CodeLine(tokensBeforeLbt.subList(0, index + 1).toList())
+                                tokensBeforeLbt.removeAll(astCodeLine.content)
+                                astData.add(astCodeLine)
+                            } else {
+                                tokensBeforeLbt.add(leftBracketToken)
+                                tokensBetweenBrackets.add(currentToken)
+                                break
+                            }
+                        } else break
                     }
-                    val psiElement = TriePattern.findPsiElement(conditionToCheck)
 
+                    if (tokensBeforeLbt.isEmpty() && tokensBetweenBrackets.isNotEmpty()) {
+                        var index = tokensBetweenBrackets.indexOfFirst { it.type == semicolon }
+                        while (index != -1) {
+                            val astCodeLine = ASTElement.CodeLine(tokensBetweenBrackets.subList(0, index + 1).toList())
+                            tokensBetweenBrackets.removeAll(astCodeLine.content)
+                            astData.add(astCodeLine)
+                            index = tokensBetweenBrackets.indexOfFirst { it.type == semicolon }
+                        }
+                    }
+
+                    if (astData.isNotEmpty()) {
+                        val parentAstElement = if (stackIDK.isEmpty()) null else stackIDK.peek()
+
+                        if (parentAstElement is ASTElement.BlockContent) {
+                            parentAstElement.content = buildList {
+                                addAll(parentAstElement.content)
+                                addAll(astData)
+                            }
+                            if (currentToken.type == rcb) {
+                                stackIDK.pop()
+                                val parentOfParent = if (stackIDK.isEmpty()) null else stackIDK.peek()
+                                if (parentOfParent != null && parentOfParent is ASTElement.BlockContent) {
+                                    parentOfParent.content = buildList {
+                                        addAll(parentOfParent.content)
+                                        add(parentAstElement)
+                                    }
+                                } else {
+                                    tree.add(parentAstElement)
+                                }
+                            }
+                        } else {
+                            throw RuntimeException("Parsed AstData is not empty, but ParentAstNode is not Block. ParentAstNode=\n${parentAstElement}\nAstData=${astData}")
+                        }
+                    }
+
+                    if (psiElement != null && tokensBetweenBrackets.isNotEmpty()) {
+                        var index = tokensBetweenBrackets.indexOfFirst { it.type == semicolon }
+                        while (index != -1) {
+                            val astCodeLine = ASTElement.CodeLine(tokensBetweenBrackets.subList(0, index + 1).toList())
+                            tokensBetweenBrackets.removeAll(astCodeLine.content)
+                            astData.add(astCodeLine)
+                            index = tokensBetweenBrackets.indexOfFirst { it.type == semicolon }
+                        }
+                    }
 
                     when (psiElement) {
                         PsiElement.FUNCTION -> {
-                            val astElement = ASTElement.Function(
-                                definition = conditionToCheck.dropLast(1),
-                                arguments = tokensBetweenBrackets
+                            val statement = ASTElement.BlockContent.Function(
+                                definition = tokensBeforeLbt,
+                                arguments = tokensBetweenBrackets,
+                                content = emptyList()
                             )
-                            stackIDK.add(astElement)
-                            println("conditionToCheck: ${conditionToCheck.joinToString("") { it.text }}")
-                            println(psiElement)
+                            stackIDK.add(statement)
+                            savedTokens = mutableListOf()
                         }
-                        else -> {
-                            val tokenBeforeOpenBracket = tokensBeforeLbt.lastOrNull()
-                            println(tokenBeforeOpenBracket)
-                            when (tokenBeforeOpenBracket?.type) {
-                                null -> {
-                                    println("tokensBeforeLbt is empty")
+                        PsiElement.CONDITION -> {
+                            val element = tokensBeforeLbt.first()
+                            when(element.text) {
+                                "if" -> {
+                                    val statement = ASTElement.BlockContent.If(
+                                        token = tokensBeforeLbt.first(),
+                                        condition = tokensBetweenBrackets,
+                                        content = emptyList()
+                                    )
+                                    stackIDK.add(statement)
                                 }
-                                statementLoop -> {
-                                    if (tokenBeforeOpenBracket.text == "while") {
-                                        val statement = ASTElement.WhileLoopStatement(
-                                            token = tokenBeforeOpenBracket,
-                                            condition = tokensBetweenBrackets
-                                        )
-                                        stackIDK.add(statement)
-                                    }
-                                }
-                                statementControl -> {
-                                    if (tokenBeforeOpenBracket.text == "if") { // Определение условия блока IF
-                                        val statement = ASTElement.IfStatement(
-                                            token = tokenBeforeOpenBracket,
-                                            condition = tokensBetweenBrackets
-                                        )
-                                        stackIDK.add(statement)
-                                    } else if (tokenBeforeOpenBracket.text == "else") { // Определение содержимого блока ELSE
-                                        val lines = mutableListOf<ASTElement>()
-                                        var line = mutableListOf<Token>()
-                                        tokensBetweenBrackets.forEach {
-                                            line.add(it)
-                                            if (it.type == semicolon) {
-                                                lines.add(ASTElement.Line(line))
-                                                line = mutableListOf()
-                                            }
-                                        }
-                                        tree.add(ASTElement.ElseStatement(tokenBeforeOpenBracket, ASTElement.Block(lines)))
-                                    }
-                                }
-                                else -> { // Какие-то скобки, нужно смотреть в stackIDK
-                                    if (!stackIDK.isEmpty()) when (stackIDK.peek()) {
-                                        is ASTElement.IfStatement -> {
-                                            val element = stackIDK.pop() as ASTElement.IfStatement
+                                "else" -> {
+                                    val statement = ASTElement.BlockContent.Else(
+                                        token = tokensBeforeLbt.first(),
+                                        content = astData
+                                    )
 
-                                            val lines = mutableListOf<ASTElement>()
-                                            var line = mutableListOf<Token>()
-                                            tokensBetweenBrackets.forEach {
-                                                line.add(it)
-                                                if (it.type == semicolon) {
-                                                    lines.add(ASTElement.Line(line))
-                                                    line = mutableListOf()
-                                                }
-                                            }
-
-                                            val newElem = element.copy(content = ASTElement.Block(lines))
-                                            tree.add(newElem)
-                                        }
-                                        is ASTElement.WhileLoopStatement -> {
-                                            val element = stackIDK.pop() as ASTElement.WhileLoopStatement
-
-                                            val lines = mutableListOf<ASTElement>()
-                                            var line = mutableListOf<Token>()
-                                            tokensBetweenBrackets.forEach {
-                                                line.add(it)
-                                                if (it.type == semicolon) {
-                                                    lines.add(ASTElement.Line(line))
-                                                    line = mutableListOf()
-                                                }
-                                            }
-
-                                            val newElem = element.copy(content = ASTElement.Block(lines))
-                                            tree.add(newElem)
-                                        }
-                                        is ASTElement.Function -> {
-                                            val element = stackIDK.pop() as ASTElement.Function
-
-                                            val lines = mutableListOf<ASTElement>()
-                                            var line = mutableListOf<Token>()
-                                            tokensBetweenBrackets.forEach {
-                                                line.add(it)
-                                                if (it.type == semicolon) {
-                                                    lines.add(ASTElement.Line(line))
-                                                    line = mutableListOf()
-                                                }
-                                            }
-
-                                            val newElem = element.copy(content = ASTElement.Block(lines))
-                                            tree.add(newElem)
-                                        }
-                                        else -> {
-                                            println("Unknown chain: ${conditionToCheck.joinToString("") { it.text }}")
-                                        }
-                                    }
+                                    stackIDK.add(statement)
                                 }
                             }
-//                            println("tokensBetweenBrackets: ${tokensBetweenBrackets.joinToString("") { it.text }}")
-//                            println("tokensBeforeLbt: ${tokensBeforeLbt.joinToString("")}")
-                            println()
+                            savedTokens = mutableListOf()
+                        }
+
+                        else -> {
+                            savedTokens = tokensBeforeLbt.toMutableList().also { it.addAll(tokensBetweenBrackets) }
                         }
                     }
-                    savedTokens = tokensBeforeLbt.toMutableList().also { it.addAll(tokensBetweenBrackets) }
                 } else {
                     bracketLevels.push(currentToken to savedTokens)
                     savedTokens = mutableListOf()
@@ -215,27 +208,16 @@ object CppLexer : Lexer() {
                 if (bracketLevels.isEmpty() && !TriePattern.startsWith(savedTokens)) {
                     println("Drop next tokens: ${savedTokens.joinToString(separator = "")}")
                     savedTokens.clear()
+                } else {
+                    val psiElement = TriePattern.findPsiElement(savedTokens)
+                    if (psiElement != null) {
+                        println(psiElement)
+                    }
                 }
             }
         }
         println(tree.joinToString("\n\n"))
     }
-
-//    fun foo(tokens: List<Token>) {
-//        if (TriePattern.startsWith(savedTokens)) {
-//            val psiElement = TriePattern.findPsiElement(savedTokens)
-//            if(psiElement != null) {
-//            } else {
-//                index++
-//            }
-//        } else {
-//            index++
-//        }
-//    } else {
-//        index++
-//        savedTokens.clear()
-//    }
-//    }
 
     val Token.isAnyBracket: Boolean
         get() = (type == lb || type == rb) || (type == lcb || type == rcb)
@@ -245,50 +227,42 @@ object CppLexer : Lexer() {
 
 sealed interface ASTElement {
 
-    data class Line(val content: List<Token>) : ASTElement {
+    data class CodeLine(val content: List<Token>) : ASTElement {
         override fun toString(): String {
             return content.joinToString(" ") { it.text }
         }
     }
 
-    data class Block(val content: List<ASTElement>) : ASTElement {
-        override fun toString(): String {
-            return content.joinToString("\n")
-        }
-    }
+    sealed interface BlockContent : ASTElement {
+        var content: List<ASTElement>
 
-    data class IfStatement(
-        val token: Token,
-        val condition: List<Token>,
-        val content: Block? = null
-    ) : ASTElement {
-        override fun toString(): String {
-            return "IF (${condition.joinToString("") { it.text }}) { $content }"
+        data class If(
+            val token: Token,
+            var condition: List<Token>,
+            override var content: List<ASTElement>
+        ) : BlockContent {
+            override fun toString(): String {
+                return "${token.text} (${condition.joinToString("") { it.text }}) { $content }"
+            }
         }
-    }
 
-    data class ElseStatement(
-        val token: Token,
-        val content: Block? = null
-    ) : ASTElement {
-        override fun toString(): String {
-            return "ELSE { $content }"
+        data class Else(
+            val token: Token,
+            override var content: List<ASTElement>
+        ) : BlockContent {
+            override fun toString(): String {
+                return "${token.text} { $content }"
+            }
         }
-    }
 
-    data class WhileLoopStatement(
-        val token: Token,
-        val condition: List<Token>,
-        val content: Block? = null
-    ) : ASTElement {
-        override fun toString(): String {
-            return "WHILE (${condition.joinToString("") { it.text }}) { $content }"
-        }
-    }
-
-    data class Function(val definition: List<Token>, val arguments: List<Token>, val content: Block? = null) : ASTElement {
-        override fun toString(): String {
-            return "${definition.joinToString(" ") { it.text }} (${arguments.joinToString("") { it.text }}) { $content }"
+        data class Function(
+            val definition: List<Token>,
+            var arguments: List<Token>,
+            override var content: List<ASTElement>
+        ) : BlockContent {
+            override fun toString(): String {
+                return "${definition.joinToString(" ") { it.text }} (${arguments.joinToString("") { it.text }}) { $content }"
+            }
         }
     }
 }
