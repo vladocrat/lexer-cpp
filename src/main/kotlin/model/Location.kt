@@ -1,5 +1,7 @@
 package model
 
+import kotlinx.serialization.Serializable
+
 /**
  * Модель описывает местоположение во входных данных
  *
@@ -7,6 +9,7 @@ package model
  * @property column Номер столбца, начиная с 1
  * @property offset Количество символов перед местоположением
  */
+@Serializable
 data class Location(
     val row: Int,
     val column: Int,

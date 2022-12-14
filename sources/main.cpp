@@ -1,3 +1,5 @@
+
+
 Token::Token(Kind kind, const std::string& lexeme) {
     for(i = 0; i < 0; i++) {
         step = i * call();
@@ -30,6 +32,7 @@ bool foo(const Token& other)
     }
     if (m_lexeme != other.lexeme) {
         return false;
+        println("text-else");
     } else {
         var = 100;
         println("text-else");

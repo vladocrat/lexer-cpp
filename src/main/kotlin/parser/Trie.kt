@@ -4,16 +4,28 @@ import lexer.CppLexer
 import model.Token
 import types.TokenType
 
+/**
+ * Program Structure Interface
+ */
 enum class PsiElement {
-    FUNCTION, FUN_CALL
+    /**
+     * Последовательность [Token] является опредлением функции
+     */
+    FUNCTION,
+
+    /**
+     * Последовательность [Token] является вызывом функции
+     */
+    FUN_CALL
 }
 
-object TriePattern {
-
+/**
+ * Дерево префиксного происка по [Token] для определения [PsiElement]
+ */
+object Trie {
     private val root = Node()
-    val availableTypes = mutableSetOf<TokenType>()
 
-    fun init() {
+    init {
         insert(
             PsiElement.FUNCTION, listOf(
                 CppLexer.primitiveType,
@@ -78,42 +90,14 @@ object TriePattern {
                 CppLexer.lb,
             )
         )
-//        insert(
-//            PsiElement.LOOP, listOf(
-//                CppLexer.statementLoop,
-//                CppLexer.lb,
-//            )
-//        )
-//        insert(
-//            PsiElement.LOOP, listOf(
-//                CppLexer.statementLoop,
-//                CppLexer.lcb,
-//            )
-//        )
-//        insert(
-//            PsiElement.CONDITION, listOf( // switch()
-//                CppLexer.statementControl,
-//                CppLexer.lb
-//            )
-//        )
-//        insert(
-//            PsiElement.CONDITION, listOf( // (if|else|switch|case) {
-//                CppLexer.statementControl,
-//                CppLexer.lcb
-//            )
-//        )
-//        insert(
-//            PsiElement.FUN_CALL, listOf( // (if|else|switch|case) {
-//                CppLexer.identifier,
-//                CppLexer.lcb
-//            )
-//        )
     }
 
+    /**
+     * Зарегистрировать новую последовательноть [tokenTypes] для определения [element]
+     */
     fun insert(element: PsiElement, tokenTypes: List<TokenType>) {
         var currentNode = root
         for (type in tokenTypes) {
-            availableTypes.add(type)
             if (currentNode.childNodes[type] == null) {
                 currentNode.childNodes[type] = Node()
             }
@@ -121,18 +105,12 @@ object TriePattern {
         }
         currentNode.psiElement = element
     }
-//
-//    fun search(word: String): Boolean {
-//        var currentNode = root
-//        for (char in word) {
-//            if (currentNode.childNodes[char] == null) {
-//                return false
-//            }
-//            currentNode = currentNode.childNodes[char]!!
-//        }
-//        return currentNode.token != null
-//    }
 
+    /**
+     * Выполнить поиск [PsiElement] по заданной последовательности [tokens]
+     *
+     * @return [PsiElement] или `null`
+     */
     fun findPsiElement(tokens: List<Token>): PsiElement? {
         var currentNode = root
         for (token in tokens) {
